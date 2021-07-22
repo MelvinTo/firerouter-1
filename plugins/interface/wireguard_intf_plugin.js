@@ -42,10 +42,22 @@ class WireguardInterfacePlugin extends InterfaceBasePlugin {
     await exec(`sudo ip link del dev ${this.name}`).catch((err) => {});
     await fs.unlinkAsync(this._getInterfaceConfPath()).catch((err) => {});
     if (this.networkConfig.listenPort) {
-      await exec(util.wrapIptables(`sudo iptables -w -D FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
-      await exec(util.wrapIptables(`sudo ip6tables -w -D FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
-      await exec(util.wrapIptables(`sudo iptables -w -t nat -D FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
-      await exec(util.wrapIptables(`sudo ip6tables -w -t nat -D FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
+
+      const firewallPort = this.getFirewallPort();
+      const listenPort = this.networkConfig.listenPort;
+
+      // port redirect, this is to fix the conflict between wireguard binding all interfaces with dual wan load balancing
+      if(firewallPort !== listenPort) {
+        const statement = `-w -t nat -D FR_WIREGUARD_DEFAULT -p udp --dport ${firewallPort} -j REDIRECT --to-port ${listenPort}`;
+        await exec(util.wrapIptables(`sudo iptables ${statement}`));
+        await exec(util.wrapIptables(`sudo ip6tables ${statement}`));
+      } else {
+        await exec(util.wrapIptables(`sudo iptables -w -D FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});
+        await exec(util.wrapIptables(`sudo ip6tables -w -D FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});
+        await exec(util.wrapIptables(`sudo iptables -w -t nat -D FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});
+        await exec(util.wrapIptables(`sudo ip6tables -w -t nat -D FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});
+      }
+      
     }
   }
 
@@ -53,6 +65,10 @@ class WireguardInterfacePlugin extends InterfaceBasePlugin {
     return `${r.getUserConfigFolder()}/wireguard/${this.name}.conf`;
   }
 
+  getFirewallPort() {
+    return this.networkConfig.firewallPort || this.networkConfig.listenPort;
+  }
+  
   async createInterface() {
     await exec(`sudo ip link add dev ${this.name} type wireguard`).catch((err) => {});
     if (!this.networkConfig.privateKey)
@@ -63,10 +79,22 @@ class WireguardInterfacePlugin extends InterfaceBasePlugin {
     if (this.networkConfig.listenPort) {
       entries.push(`ListenPort = ${this.networkConfig.listenPort}`);
       if (this.networkConfig.enabled) {
-        await exec(util.wrapIptables(`sudo iptables -w -A FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
-        await exec(util.wrapIptables(`sudo ip6tables -w -A FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
-        await exec(util.wrapIptables(`sudo iptables -w -t nat -A FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
-        await exec(util.wrapIptables(`sudo ip6tables -w -t nat -A FR_WIREGUARD -p udp --dport ${this.networkConfig.listenPort} -j ACCEPT`)).catch((err) => {});
+
+        const firewallPort = this.getFirewallPort();
+        const listenPort = this.networkConfig.listenPort;
+
+        // port redirect, this is to fix the conflict between wireguard binding all interfaces with dual wan load balancing
+        if(firewallPort !== listenPort) {
+          const statement = `-w -t nat -A FR_WIREGUARD_DEFAULT -p udp --dport ${firewallPort} -j REDIRECT --to-port ${listenPort}`;
+          await exec(util.wrapIptables(`sudo iptables ${statement}`));
+          await exec(util.wrapIptables(`sudo ip6tables ${statement}`));
+        } else {
+          await exec(util.wrapIptables(`sudo iptables -w -A FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});
+          await exec(util.wrapIptables(`sudo ip6tables -w -A FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});
+          await exec(util.wrapIptables(`sudo iptables -w -t nat -A FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});
+          await exec(util.wrapIptables(`sudo ip6tables -w -t nat -A FR_WIREGUARD -p udp --dport ${firewallPort} -j ACCEPT`)).catch((err) => {});          
+        }
+
       }
     }
     entries.push('\n');
