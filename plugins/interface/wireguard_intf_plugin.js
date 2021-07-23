@@ -88,7 +88,7 @@ class WireguardInterfacePlugin extends InterfaceBasePlugin {
     await exec(`sudo ip link add ${brName} type bridge`);
     await exec(`sudo ip link set ${vethHost} master ${brName}`);
     await exec(`sudo ip link set ${vethHost} up`);
-    await exec(`sudo ip addr add ${brName} dev ${vethHost}`);    
+    await exec(`sudo ip addr add ${vethHostIP} dev ${brName}`);
 
     await exec(`sudo ip netns exec ${nsName} ip route add default via ${vethNSIP} dev ${vethNS}`);
     await exec(`sudo ip netns exec ${nsName} iptables -t nat -A POSTROUTING -o ${vethNS} -j MASQUERADE`);
