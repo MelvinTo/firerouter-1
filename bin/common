@@ -57,6 +57,8 @@ init_network_config() {
 
   echo "Successfully apply last network config"
 
+  redis-cli publish firerouter.wan_conn_check_request ""
+
   test_network
 }
 

@@ -22,21 +22,38 @@ const pl = require('../plugins/plugin_loader.js');
 const event = require('../core/event.js');
 const era = require('../event/EventRequestApi.js');
 const EventConstants = require('../event/EventConstants.js');
+const sclient = require('../util/redis_manager.js').getSubscriptionClient();
+const Message = require('../core/Message.js');
 const _ = require('lodash');
 
 class WanConnCheckSensor extends Sensor {
+
+  setupTimer() {
+    if(this.timer) {
+      return;
+    }
+    this.timer = setInterval(() => {
+      this._checkWanConnectivity().catch((err) => {
+        this.log.error("Failed to do WAN connectivity check", err.message);
+      });
+    }, 20000);
+  }
 
   async run() {
     setTimeout(() => {
       this._checkWanConnectivity().catch((err) => {
         this.log.error("Failed to do WAN connectivity check", err.message);
       });
-      setInterval(() => {
-        this._checkWanConnectivity().catch((err) => {
-          this.log.error("Failed to do WAN connectivity check", err.message);
-        });
-      }, 20000);
+      this.setupTimer();
     }, 60000);
+
+    sclient.on("message", (channel, message) => {
+      if (channel === Message.MSG_FR_WAN_CONN_CHECK_REQUEST) {
+        this._checkWanConnectivity();
+        this.setupTimer();
+      }
+    });
+    sclient.subscribe(Message.MSG_FR_WAN_CONN_CHECK_REQUEST);
   }
 
   async _checkWanConnectivity() {

@@ -18,6 +18,7 @@
 const MSG_FR_CHANGE_APPLIED = "firerouter.change_applied";
 const MSG_FR_IFACE_CHANGE_APPLIED = "firerouter.iface_change_applied";
 const MSG_FR_WAN_CONN_CHANGED = "firerouter.wan_conn_changed";
+const MSG_FR_WAN_CONN_CHECK_REQUEST = "firerouter.wan_conn_check_request";
 
 module.exports = {
   MSG_FR_CHANGE_APPLIED,
